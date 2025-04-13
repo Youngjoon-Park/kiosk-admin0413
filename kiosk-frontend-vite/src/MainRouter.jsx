@@ -1,25 +1,27 @@
-import React, { useState } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import React, { useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
-import App from "./App";
-import CartPage from "./pages/CartPage";
-import MenuTestPage from "./pages/MenuTestPage";
-import MenuAddForm from "./pages/MenuAddForm";
-import MenuEditForm from "./pages/MenuEditForm";
-import OrderCreatePage from "./pages/OrderCreatePage";
-import OrderCompletePage from "./pages/OrderCompletePage";
-import PaymentPage from "./pages/PaymentPage";
-import PaymentSuccessPage from "./pages/PaymentSuccessPage";
-import OrderList from "./components/OrderList";
+import StartPage from './pages/StartPage'; // ✅ 추가된 StartPage import
+import App from './App';
+import CartPage from './pages/CartPage';
+import MenuTestPage from './pages/MenuTestPage';
+import MenuAddForm from './pages/MenuAddForm';
+import MenuEditForm from './pages/MenuEditForm';
+import OrderCreatePage from './pages/OrderCreatePage';
+import OrderCompletePage from './pages/OrderCompletePage';
+import PaymentPage from './pages/PaymentPage';
+import PaymentSuccessPage from './pages/PaymentSuccessPage';
+import OrderList from './components/OrderList';
 
-import AdminHome from "./pages/AdminHome";
-import AdminLoginPage from "./pages/AdminLoginPage";
-import AdminOrders from "./components/admin/AdminOrders";
-import AdminPayments from "./pages/AdminPayments";
-import OrderDetail from "./components/admin/OrderDetail"; // ✅ 수정된 경로
+import AdminHome from './pages/AdminHome';
+import AdminLoginPage from './pages/AdminLoginPage';
+import AdminOrders from './components/admin/AdminOrders';
+import AdminPayments from './pages/AdminPayments';
+import OrderDetail from './components/admin/OrderDetail';
 
-import RequireAuth from "./components/RequireAuth";
-import KitchenView from "./pages/KitchenView"; // 또는 주방.jsx 파일명에 따라 수정
+import RequireAuth from './components/RequireAuth';
+import KitchenView from './pages/KitchenView';
+import OrderMenuPage from './pages/OrderMenuPage';
 
 function MainRouter() {
   const [cartItems, setCartItems] = useState([]);
@@ -29,9 +31,7 @@ function MainRouter() {
       const existing = prev.find((item) => item.id === menu.id);
       if (existing) {
         return prev.map((item) =>
-          item.id === menu.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
+          item.id === menu.id ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
       return [...prev, { ...menu, quantity: 1 }];
@@ -55,9 +55,12 @@ function MainRouter() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* 일반 사용자 */}
+        {/* ✅ 첫 화면: StartPage (매장/포장 선택) */}
+        <Route path="/" element={<StartPage />} />
+
+        {/* ✅ 기존 App을 /main 경로로 이동 */}
         <Route
-          path="/"
+          path="/main"
           element={
             <App
               key={cartItems.length}
@@ -68,6 +71,7 @@ function MainRouter() {
             />
           }
         />
+
         <Route
           path="/cart"
           element={
@@ -75,16 +79,21 @@ function MainRouter() {
               cartItems={cartItems}
               updateQuantity={updateQuantity}
               clearCart={clearCart}
+              isTakeOut={sessionStorage.getItem('isTakeOut') === 'true'} // ✅ 이 줄 추가!
             />
           }
         />
         <Route path="/menu" element={<MenuTestPage />} />
-        <Route path="/kitchen" element={<KitchenView />} /> {/* ✅ /kitchen 경로 */}
+        <Route path="/kitchen" element={<KitchenView />} />
         <Route path="/menu-test" element={<MenuTestPage />} />
         <Route path="/menu-add" element={<MenuAddForm />} />
         <Route path="/menu-edit/:id" element={<MenuEditForm />} />
         <Route path="/order/new" element={<OrderCreatePage />} />
-        <Route path="/order/complete/:orderId" element={<OrderCompletePage />} />
+        <Route path="/menu-order" element={<OrderMenuPage />} />
+        <Route
+          path="/order/complete/:orderId"
+          element={<OrderCompletePage />}
+        />
         <Route path="/payment/:orderId" element={<PaymentPage />} />
         <Route
           path="/payment/success"
@@ -92,7 +101,7 @@ function MainRouter() {
         />
         <Route path="/orders" element={<OrderList />} />
 
-        {/* 관리자 */}
+        {/* 관리자 페이지 */}
         <Route path="/admin" element={<Navigate to="/admin/orders" />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route
@@ -112,10 +121,10 @@ function MainRouter() {
           }
         />
         <Route
-          path="/admin/orders/:orderId"  // 주문 상세 페이지
+          path="/admin/orders/:orderId"
           element={
             <RequireAuth>
-              <OrderDetail /> {/* ✅ OrderDetailPage → OrderDetail */}
+              <OrderDetail />
             </RequireAuth>
           }
         />

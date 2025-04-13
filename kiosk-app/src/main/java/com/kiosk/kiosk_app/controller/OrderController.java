@@ -3,12 +3,10 @@ package com.kiosk.kiosk_app.controller;
 import com.kiosk.kiosk_app.domain.Order;
 import com.kiosk.kiosk_app.domain.Menu;
 import com.kiosk.kiosk_app.domain.OrderItem;
-
 import com.kiosk.kiosk_app.dto.*;
 import com.kiosk.kiosk_app.repository.MenuRepository;
 import com.kiosk.kiosk_app.repository.OrderRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -32,19 +30,25 @@ public class OrderController {
         @Autowired
         private SimpMessagingTemplate messagingTemplate;
 
-        // 주문 생성
+        // ✅ 주문 생성
         @PostMapping
         @Transactional
         public OrderResponse createOrder(@RequestBody OrderRequest request) {
                 Order order = new Order();
-                order.setCreatedAt(LocalDateTime.now()); // 주문 시간
-                order.setStatus("PENDING"); // 상태를 문자열로 설정
+                order.setCreatedAt(LocalDateTime.now());
+                order.setStatus("PENDING");
+
+                // ✅ 여기에 찍으세요!
+                order.setTakeOut(request.isTakeOut());
+                System.out.println("💡 받은 request.takeOut: " + request.getTakeOut());
+                System.out.println("✅ 저장된 order.takeOut: " + order.getTakeOut());
+
+                order.setTakeOut(request.isTakeOut()); // 요청에서 받은 takeOut
 
                 List<OrderItem> orderItems = new ArrayList<>();
                 int totalPrice = 0;
                 int totalAmount = 0;
 
-                // 주문 항목 추가
                 for (OrderItemRequest item : request.getItems()) {
                         Menu menu = menuRepository.findById(item.getMenuId())
                                         .orElseThrow(() -> new IllegalArgumentException("없는 메뉴 ID"));
@@ -53,21 +57,24 @@ public class OrderController {
                         orderItem.setMenu(menu);
                         orderItem.setOrder(order);
                         orderItem.setQuantity(item.getQuantity());
-                        orderItem.setPrice(menu.getPrice()); // 가격 설정
+                        orderItem.setPrice(menu.getPrice());
 
                         orderItems.add(orderItem);
-
-                        totalPrice += menu.getPrice() * item.getQuantity(); // 총 금액
-                        totalAmount += item.getQuantity(); // 총 수량
+                        totalPrice += menu.getPrice() * item.getQuantity();
+                        totalAmount += item.getQuantity();
                 }
 
-                order.setItems(orderItems); // 주문 항목 설정
-                order.setTotalPrice(totalPrice); // 총 가격 설정
-                order.setTotalAmount(totalAmount); // 총 수량 설정
+                order.setItems(orderItems);
+                order.setTotalPrice(totalPrice);
+                order.setTotalAmount(totalAmount);
 
-                orderRepository.save(order); // 주문 저장
+                orderRepository.save(order);
 
-                // items 목록을 채워서 반환
+                // ✅ takeOut null 방지 처리
+                Boolean takeOutValue = order.getTakeOut();
+                if (takeOutValue == null)
+                        takeOutValue = true;
+
                 List<OrderResponse.ItemDto> itemDtos = orderItems.stream()
                                 .map(orderItem -> new OrderResponse.ItemDto(
                                                 orderItem.getMenu().getName(),
@@ -75,13 +82,20 @@ public class OrderController {
                                                 orderItem.getPrice()))
                                 .collect(Collectors.toList());
 
-                messagingTemplate.convertAndSend("/topic/orders",
-                                new OrderResponse(order.getId(), totalPrice, order.getStatus(), itemDtos));
+                OrderResponse response = new OrderResponse(
+                                order.getId(),
+                                totalPrice,
+                                order.getStatus(),
+                                itemDtos,
+                                takeOutValue);
 
-                return new OrderResponse(order.getId(), totalPrice, order.getStatus(), itemDtos);
+                // WebSocket 메시지 전송
+                messagingTemplate.convertAndSend("/topic/orders", response);
+
+                return response;
         }
 
-        // 주문 목록 조회
+        // ✅ 주문 목록 조회
         @GetMapping
         public List<OrderResponse> getOrders(@RequestParam(required = false) String status) {
                 List<Order> orders;
@@ -89,7 +103,7 @@ public class OrderController {
                 if (status != null) {
                         orders = orderRepository.findByStatusOrderByCreatedAtDesc(status);
                 } else {
-                        orders = orderRepository.findAllByOrderByCreatedAtDesc();
+                        orders = orderRepository.findAllByOrderByIdDesc();
                 }
 
                 if (orders == null) {
@@ -98,6 +112,10 @@ public class OrderController {
 
                 return orders.stream()
                                 .map(order -> {
+                                        Boolean takeOutValue = order.getTakeOut();
+                                        if (takeOutValue == null)
+                                                takeOutValue = true;
+
                                         List<OrderResponse.ItemDto> itemDtos = order.getItems().stream()
                                                         .map(orderItem -> new OrderResponse.ItemDto(
                                                                         orderItem.getMenu().getName(),
@@ -105,13 +123,17 @@ public class OrderController {
                                                                         orderItem.getPrice()))
                                                         .collect(Collectors.toList());
 
-                                        return new OrderResponse(order.getId(), order.getTotalPrice(),
-                                                        order.getStatus(), itemDtos);
+                                        return new OrderResponse(
+                                                        order.getId(),
+                                                        order.getTotalPrice(),
+                                                        order.getStatus(),
+                                                        itemDtos,
+                                                        takeOutValue);
                                 })
                                 .collect(Collectors.toList());
         }
 
-        // 주문 상세 조회
+        // ✅ 주문 상세 조회
         @GetMapping("/{orderId}")
         public OrderDetailResponse getOrderDetail(@PathVariable Long orderId) {
                 Order order = orderRepository.findById(orderId)
@@ -124,23 +146,29 @@ public class OrderController {
                                                 item.getMenu().getPrice()))
                                 .collect(Collectors.toList());
 
-                return new OrderDetailResponse(order.getId(), order.getTotalPrice(), order.getStatus(), items);
+                return new OrderDetailResponse(
+                                order.getId(),
+                                order.getTotalPrice(),
+                                order.getStatus(),
+                                items);
         }
 
-        // 주문 상태 업데이트
+        // ✅ 주문 상태 변경
         @PatchMapping("/{orderId}/status")
         public OrderResponse updateOrderStatus(@PathVariable Long orderId,
                         @RequestBody OrderStatusUpdateRequest request) {
-                String status = request.getStatus(); // 상태를 문자열로 받음
+                String status = request.getStatus();
                 System.out.println("📦 받은 상태값: " + status);
 
                 Order order = orderRepository.findById(orderId)
                                 .orElseThrow(() -> new IllegalArgumentException("해당 주문이 존재하지 않습니다."));
 
-                // 상태를 String으로 처리
                 order.setStatus(status);
-
                 orderRepository.save(order);
+
+                Boolean takeOutValue = order.getTakeOut();
+                if (takeOutValue == null)
+                        takeOutValue = true;
 
                 List<OrderResponse.ItemDto> itemDtos = order.getItems().stream()
                                 .map(orderItem -> new OrderResponse.ItemDto(
@@ -149,6 +177,11 @@ public class OrderController {
                                                 orderItem.getPrice()))
                                 .collect(Collectors.toList());
 
-                return new OrderResponse(order.getId(), order.getTotalPrice(), order.getStatus(), itemDtos);
+                return new OrderResponse(
+                                order.getId(),
+                                order.getTotalPrice(),
+                                order.getStatus(),
+                                itemDtos,
+                                takeOutValue);
         }
 }

@@ -1,25 +1,36 @@
 package com.kiosk.kiosk_app.dto;
 
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.util.List;
 
-@Data
-public class OrderResponse {
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-    private Long id;
+@Getter
+@Setter
+public class OrderResponse {
+    private Long orderId;
     private int totalPrice;
-    private String status; // String 타입으로 수정
+    private String status;
     private List<ItemDto> items;
 
-    public OrderResponse(Long id, int totalPrice, String status, List<ItemDto> items) {
-        this.id = id;
+    @JsonInclude(JsonInclude.Include.ALWAYS)
+    @JsonProperty("takeOut")
+    private Boolean takeOut; // ✅ Boolean 객체형
+
+    // ✅ 생성자에서도 Boolean으로 통일
+    public OrderResponse(Long id, int totalPrice, String status, List<ItemDto> items, Boolean takeOut) {
+        this.orderId = id;
         this.totalPrice = totalPrice;
-        this.status = status; // String으로 처리
+        this.status = status;
         this.items = items;
+        this.takeOut = takeOut;
     }
 
-    @Data
+    @Getter
+    @Setter
     public static class ItemDto {
         private String name;
         private int quantity;

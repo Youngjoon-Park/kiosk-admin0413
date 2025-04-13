@@ -13,8 +13,11 @@ const KitchenView = () => {
       onConnect: () => {
         console.log('✅ 웹소켓 연결 성공');
         client.subscribe('/topic/new-orders', (message) => {
-          console.log("💬 받은 메시지:", message.body); // ← 메시지 확인용 로그
+          console.log('💬 받은 메시지:', message.body); // 메시지 확인용 로그
+
           const order = JSON.parse(message.body);
+          console.log('📦 받은 order.takeOut:', order.takeOut); // ✅ 제대로 된 takeOut 확인
+
           setOrders((prev) => [order, ...prev]);
         });
       },
@@ -36,14 +39,23 @@ const KitchenView = () => {
       <ul>
         {orders.map((order, index) => (
           <li key={index} className="border-b py-2">
-            <strong>주문번호:</strong> {order.id} /{' '}
-            {order.items.map((item) => `${item.name} (${item.quantity}개)`).join(', ')}
+            <strong>주문번호:</strong> {order.id} <br />
+            <strong>주문형태:</strong>{' '}
+            {order.takeOut === true
+              ? '🛍 포장'
+              : order.takeOut === false
+              ? '🍽 매장'
+              : '❓ 알 수 없음'}
+            <br />
+            <strong>주문메뉴:</strong>{' '}
+            {order.items
+              .map((item) => `${item.name} (${item.quantity}개)`)
+              .join(', ')}
           </li>
         ))}
       </ul>
     </div>
   );
 };
-
 
 export default KitchenView;

@@ -7,11 +7,12 @@ const MenuTestPage = () => {
 
   // ✅ 실제 메뉴 불러오는 함수
   const fetchMenus = () => {
-    axios.get("http://localhost:8081/menu/menus")
-      .then(res => setMenus(res.data))
-      .catch(err => {
-        console.error("메뉴 불러오기 실패:", err);
-        alert("메뉴를 불러오지 못했습니다.");
+    axios
+      .get('http://localhost:8081/menu/menus')
+      .then((res) => setMenus(res.data))
+      .catch((err) => {
+        console.error('메뉴 불러오기 실패:', err);
+        alert('메뉴를 불러오지 못했습니다.');
       });
   };
 
@@ -24,15 +25,16 @@ const MenuTestPage = () => {
   };
 
   const deleteMenu = (id) => {
-    if (window.confirm("정말 삭제하시겠습니까?")) {
-      axios.delete(`http://localhost:8081/menu/menus/${id}`)
+    if (window.confirm('정말 삭제하시겠습니까?')) {
+      axios
+        .delete(`http://localhost:8081/menu/menus/${id}`)
         .then(() => {
-          alert("삭제되었습니다.");
+          alert('삭제되었습니다.');
           fetchMenus(); // ✅ 삭제 후 다시 불러오기
         })
-        .catch(err => {
-          console.error("삭제 실패:", err);
-          alert("삭제에 실패했습니다.");
+        .catch((err) => {
+          console.error('삭제 실패:', err);
+          alert('삭제에 실패했습니다.');
         });
     }
   };

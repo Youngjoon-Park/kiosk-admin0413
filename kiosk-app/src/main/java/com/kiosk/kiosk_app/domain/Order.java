@@ -19,43 +19,57 @@ public class Order {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Lombok 빌더에서 기본값을 적용하려면 @Builder.Default가 필요합니다.
+    @Builder.Default
+    @Column(name = "take_out")
+    private Boolean takeOut = true; // 기본값 true (포장)
+
     @Column(name = "order_date")
-    private LocalDateTime createdAt; // 주문 생성 시간
+    private LocalDateTime createdAt;
 
     @Column(name = "total_price")
-    private Integer totalPrice; // 총 금액
+    private Integer totalPrice;
 
-    @Column(name = "total_amount") // 총 수량
+    @Column(name = "total_amount")
     private int totalAmount;
 
     @Column(name = "status")
-    private String status; // 상태를 String으로 변경
+    private String status;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
     @Builder.Default
     private List<OrderItem> items = new ArrayList<>();
 
-    // totalAmount는 주문 항목들의 수량 합계를 계산해서 리턴하는 메서드로 설정
+    // 주문 항목들의 총 수량 계산
     public int getTotalAmount() {
         return items.stream()
                 .mapToInt(OrderItem::getQuantity)
-                .sum(); // 각 OrderItem의 수량 합계
+                .sum();
     }
 
-    // PrePersist를 사용하여 새로운 주문이 생성될 때 createdAt과 status를 설정
+    // 컨트롤러에서 getTakeOut()을 호출할 경우, null이면 기본값(true)을 반환하도록 오버라이드합니다.
+    public Boolean getTakeOut() {
+        return takeOut != null ? takeOut : true;
+    }
+
+    // 컨트롤러에서 isTakeOut()을 사용할 경우에도 동일한 값을 반환하도록 합니다.
+    public Boolean isTakeOut() {
+        return getTakeOut();
+    }
+
+    // 엔티티가 DB에 저장되기 전에 필요한 값들을 초기화합니다.
     @PrePersist
     public void prePersist() {
+        if (takeOut == null) {
+            this.takeOut = true;
+        }
         this.createdAt = LocalDateTime.now();
         if (this.status == null) {
-            this.status = "PENDING"; // 상태가 null일 경우 기본값으로 PENDING 설정
+            this.status = "PENDING";
         }
-
-        // totalAmount를 계산하여 저장
         this.totalAmount = getTotalAmount();
-
-        // totalPrice를 계산하여 저장 (가격 합계 계산 필요)
         this.totalPrice = items.stream()
-                .mapToInt(item -> item.getQuantity() * item.getPrice()) // 가격 * 수량 합계
+                .mapToInt(item -> item.getQuantity() * item.getPrice())
                 .sum();
     }
 }
