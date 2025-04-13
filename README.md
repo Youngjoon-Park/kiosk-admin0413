@@ -332,6 +332,152 @@ function RequireAuth({ children }) {
 이제 관리자 메뉴 관련 요청들은 인증이 자동으로 적용되며, 토큰이 만료되었을 경우 로그인 페이지로 이동하도록 구성됨.
 
 
+# 🛠️ Kiosk 프로젝트 PM2 풀스택 배포 가이드 (2025-04-13 기준)
+
+## ✅ 설치 전 필수 조건
+
+### 🔧 필요 설치 항목
+- Node.js (v18 이상 권장)
+- Java 17
+- MySQL 8.x
+- Git (선택)
+
 ---
 
-> "실무에서 겪은 시행착오와 실전형 요구사항을 바탕으로, 빠르게 현장에 도입할 수 있는 키오스크 시스템을 목표로 구축했습니다."
+## ✅ 프로젝트 클론
+```bash
+cd D:\kiosk-system
+git clone https://github.com/Youngjoon-Park/kiosk-admin0413.git
+```
+
+---
+
+## ✅ 디렉토리 구조
+```
+kiosk-admin0413/
+├── kiosk-app/                # 백엔드 Spring Boot (.jar)
+├── kiosk-frontend-vite/      # 프론트 React (Vite 기반)
+├── config-server/            # Spring Cloud Config 서버
+```
+
+---
+
+## ✅ MySQL 설정
+
+```sql
+CREATE DATABASE kioskdb DEFAULT CHARACTER SET utf8mb4;
+CREATE USER 'kiosk_user'@'%' IDENTIFIED BY '1234';
+GRANT ALL PRIVILEGES ON kioskdb.* TO 'kiosk_user'@'%';
+FLUSH PRIVILEGES;
+```
+
+---
+
+## ✅ 백엔드 실행 순서
+
+### 1. Config 서버 실행 (먼저!)
+```bash
+cd kiosk-admin0413/config-server
+./gradlew bootRun
+```
+
+### 2. 메인 백엔드 앱 실행
+```bash
+cd kiosk-admin0413/kiosk-app
+./gradlew bootRun
+```
+
+서버는 `localhost:8081` 에서 작동
+
+---
+
+## ✅ 프론트 빌드 및 PM2 배포
+
+### 1. 의존성 설치
+```bash
+cd kiosk-admin0413/kiosk-frontend-vite
+npm install
+```
+
+### 2. 빌드 (Vite)
+```bash
+npm run build
+```
+
+### 3. PM2로 정적 서버 실행 (serve 설치 필요)
+```bash
+npm install -g serve pm2
+```
+
+### 4. ecosystem.config.cjs 생성 (vite 전용)
+```js
+module.exports = {
+  apps: [
+    {
+      name: 'kiosk-frontend',
+      script: 'node_modules/serve/bin/serve.js',
+      args: '-s dist -l 4173',
+      cwd: './',
+    },
+  ],
+};
+```
+
+### 5. PM2 실행
+```bash
+pm2 start ecosystem.config.cjs
+```
+
+→ 정상 작동 시 `localhost:4173` 접속 가능
+
+---
+
+## ✅ 에러 해결 팁
+
+### ❌ `Access to XMLHttpRequest` (CORS 오류)
+- 백엔드 `SecurityConfig.java`에 CORS 허용 설정 필요
+```java
+config.addAllowedOrigin("http://localhost:4173");
+```
+
+### ❌ `Script not found: npm run preview`
+- preview는 개발용, PM2에서는 `serve`로 실행해야 함
+
+### ❌ ecosystem.config.js 오류
+- Vite 프로젝트는 `.cjs` 확장자 사용 (`module.exports` 방식)
+
+---
+
+## ✅ PM2 유용 명령어
+```bash
+pm2 list                  # 전체 앱 상태 확인
+pm2 logs kiosk-frontend   # 로그 보기
+pm2 stop kiosk-frontend   # 중지
+pm2 restart kiosk-frontend # 재시작
+pm2 delete kiosk-frontend # 제거
+pm2 save && pm2 startup   # 부팅 시 자동 실행 등록
+```
+
+---
+
+## ✅ 요약
+| 항목 | 내용 |
+|------|------|
+| 프론트 포트 | `4173` |
+| 백엔드 포트 | `8081` |
+| MySQL 포트 | `3306` |
+| JWT 인증 | `/admin/login`에서 발급됨 (토큰 10분 유효) |
+| 토큰 위치 | `localStorage.setItem('token', ...)` |
+
+---
+
+## 📦 배포 흐름 요약
+```
+1. config-server 실행
+2. kiosk-app 실행
+3. kiosk-frontend-vite 빌드
+4. PM2 serve 실행 (4173)
+5. http://localhost:4173 접속
+```
+
+
