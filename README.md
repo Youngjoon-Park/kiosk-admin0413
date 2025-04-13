@@ -164,33 +164,173 @@ npm install
 npm run dev
 ```
 
-접속 URL: [http://localhost:5173/admin/orders](http://localhost:5173/admin/orders)
+
+# 🛠️ Kiosk Admin 프로젝트 (2025-04-13 업데이트)
+
+## ✅ 오늘 진행한 작업 요약
+
+### 1. 관리자 인증 시스템 (JWT) 점검 및 수정
+- 기존 `token` 명칭을 그대로 유지하면서 JWT 인증 구조를 적용함.
+- 로그인 시 `localStorage.setItem('token', ...)` 으로 저장되고,
+- API 요청 시 `axiosInstance`를 통해 자동으로 `Authorization` 헤더 추가되도록 구성.
+
+### 2. `RequireAuth.jsx` 인증 보호 라우터 수정
+- 이전에는 `setValid(true)`로 인증을 무조건 통과시켰던 임시 코드였음.
+- `jwt-decode`를 이용해 토큰 만료 여부를 확인하고 만료 시 로그인 페이지로 리디렉션되도록 개선.
+
+```js
+const token = localStorage.getItem('token');
+const decoded = jwtDecode(token);
+if (decoded.exp < 현재시간) {
+  localStorage.removeItem('token');
+  return <Navigate to="/admin/login" />;
+}
+```
+
+### 3. axios 요청 오류 403 (Forbidden) 해결
+- 요청 헤더에 토큰이 누락되어 서버에서 권한 거부 발생.
+- `adminMenuApi.jsx`, `adminPaymentApi.jsx` 등에서 직접 헤더를 설정하거나,
+  `axiosInstance.js`를 만들어 interceptor로 모든 요청에 자동으로 토큰을 붙이도록 구성함.
+  
+```js
+axiosInstance.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+```
+
+### 4. 브라우저 콘솔 수동 토큰 입력 (임시 테스트)
+```js
+localStorage.setItem("token", "<JWT>");
+```
 
 ---
 
-## 📢 실시간 알림 (WebSocket)
+## 💡 현재 상태
 
-- WebSocket 채널 `/topic/orders` 구독
-- 주문 발생 시 관리자 페이지에서 실시간 반영
-- 추후 **소리 알림(ding.mp3)** 기능 추가 예정
-
----
-
-## ✅ 향후 계획 (To-Do)
-
-- [ ] 주문 상태를 단계별로 세분화 (PREPARING, DONE 등)
-- [ ] Tailwind CSS 스타일링 적용
-- [ ] WebSocket 알림 시 효과음(`띠링`) 재생
-- [ ] 바코드/스캐너 연동
-- [ ] Docker 정식 배포 재시도
-- [ ] 키오스크 장비 자동 실행 설정
+| 기능 | 작동 여부 |
+|------|-----------|
+| 로그인 → JWT 발급 | ✅ 정상 작동 |
+| 관리자 페이지 접근 보호 | ✅ `RequireAuth` 통해 체크 |
+| 메뉴 수정/삭제/등록 | ✅ 토큰이 있을 경우 정상 작동 |
+| 토큰 만료 시 처리 | ✅ 로그인 페이지로 리디렉션 |
 
 ---
 
-## 👨‍💻 개발자 정보
+## 🔧 추가적으로 설치한 라이브러리
 
-- **Youngjoon Park**
-- GitHub: [https://github.com/Youngjoon-Park](https://github.com/Youngjoon-Park)
+```bash
+npm install jwt-decode
+```
+
+---
+
+## 🔐 리프레시 토큰은 적용하지 않음
+- 현재는 단순한 `accessToken` 방식만 사용 (10분 유효).
+- 만료 시에는 로그인만 다시 하면 새 토큰 발급됨.
+
+---
+
+## 📁 폴더 구조 예시
+
+```
+kiosk-status-0406/
+├── kiosk-app/              # Spring Boot 백엔드
+├── kiosk-frontend-vite/    # React + Vite 프론트엔드
+├── config-server/          # Spring Cloud Config
+```
+
+---
+
+🕹️ 관리자는 `/admin/login`으로 로그인 후 `/admin/home` 으로 이동됩니다.
+
+## ⚠️ 에러 상황 및 해결 요약
+
+### 🔸 문제 1: 메뉴 수정/삭제 시 403 Forbidden 오류
+- 원인: `Authorization` 헤더가 누락되거나 만료된 토큰을 사용함.
+- 해결:
+  - `axiosInstance.js`에 토큰 자동 부착 설정 추가.
+  - `adminMenuApi.jsx`, `adminPaymentApi.jsx` 등에서 axios 대신 `axiosInstance`로 교체.
+
+### 🔸 문제 2: RequireAuth 컴포넌트가 인증 검사를 하지 않음
+- 원인: 초기 `setValid(true)`로 고정되어 항상 통과.
+- 해결:
+  - `jwt-decode`를 활용해 토큰의 `exp` 만료 여부를 검사하여 유효하지 않으면 로그인 페이지로 이동.
+
+### 🔸 문제 3: 로그인 후에도 보호된 페이지 접근 불가
+- 원인: 토큰은 저장되지만 요청 시 헤더에 포함되지 않아 백엔드에서 인증 실패.
+- 해결:
+  - 모든 axios 요청에 인터셉터로 토큰 삽입.
+  - 필요한 API 파일에서 `axios` → `axiosInstance`로 수정.
+
+---
+
+## ✅ 적용된 주요 코드 요약
+
+### ✅ 1. axiosInstance.js 설정
+
+```js
+// src/api/axiosInstance.js
+import axios from 'axios';
+
+const axiosInstance = axios.create();
+
+axiosInstance.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+}, (error) => Promise.reject(error));
+
+export default axiosInstance;
+```
+
+### ✅ 2. adminMenuApi.jsx 예시
+
+```js
+// src/api/adminMenuApi.jsx
+import axios from './axiosInstance';
+
+export const getMenuById = async (id) => {
+  const response = await axios.get(`/api/admin/menus/${id}`);
+  return response.data;
+};
+```
+
+### ✅ 3. RequireAuth.jsx 수정
+
+```js
+// src/components/RequireAuth.jsx
+import { jwtDecode } from 'jwt-decode';
+import { Navigate } from 'react-router-dom';
+
+function RequireAuth({ children }) {
+  const token = localStorage.getItem('token');
+
+  if (!token) return <Navigate to="/admin/login" replace />;
+
+  try {
+    const decoded = jwtDecode(token);
+    const now = Math.floor(Date.now() / 1000);
+    if (decoded.exp && decoded.exp < now) {
+      localStorage.removeItem('token');
+      return <Navigate to="/admin/login" replace />;
+    }
+  } catch (e) {
+    localStorage.removeItem('token');
+    return <Navigate to="/admin/login" replace />;
+  }
+
+  return children;
+}
+```
+
+이제 관리자 메뉴 관련 요청들은 인증이 자동으로 적용되며, 토큰이 만료되었을 경우 로그인 페이지로 이동하도록 구성됨.
+
 
 ---
 
