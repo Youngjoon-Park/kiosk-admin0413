@@ -29,16 +29,17 @@ public class SecurityConfig {
                                 .httpBasic().disable()
                                 .csrf().disable() // CSRF 비활성화
                                 .authorizeRequests(authz -> authz
+                                                .requestMatchers("/api/admin/login").permitAll() // 로그인 페이지 허용
+
                                                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // OPTIONS 요청 허용
                                                 .requestMatchers("/api/admin/orders").permitAll()
                                                 .requestMatchers("/api/admin/orders/**").permitAll()
-                                                .requestMatchers("/api/admin/payments").permitAll()
-                                                .requestMatchers("/api/admin/payments/**").permitAll()
+                                                // .requestMatchers("/api/admin/payments").permitAll()
+                                                // .requestMatchers("/api/admin/payments/**").permitAll()
                                                 .requestMatchers("/ws-endpoint/**").permitAll() // WebSocket 허용
                                                 .requestMatchers("/api/menus").permitAll()
-                                                .requestMatchers("/api/admin/login").permitAll() // 로그인 페이지 허용
+
                                                 .requestMatchers("/api/admin/validate").permitAll() // 로그인 후 인증 검증 페이지
-                                                                                                    // 허용
                                                 .requestMatchers("/api/admin/menus/**").permitAll()
                                                 .requestMatchers("/api/admin/**").hasRole("ADMIN") // 관리자 권한 설정
                                                 .anyRequest().permitAll()) // 나머지 요청은 모두 허용

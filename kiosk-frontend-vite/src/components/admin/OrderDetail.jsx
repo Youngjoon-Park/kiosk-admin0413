@@ -2,11 +2,13 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
-
+// 1️⃣ props에서 받은 것	propId	부모 컴포넌트가 <OrderDetail orderId={77} /> 이런 식으로 직접 넘긴 값
+// 2️⃣ URL 파라미터에서 받은 것	paramId	주소창이 /admin/orders/77이면, useParams로 받은 값
+// 3️⃣ 최종 사용되는 것	orderId	위 두 가지 중 있는 걸 쓰도록 선택한 변수 → `const orderId = propId
 function OrderDetail({ orderId: propId, onClose }) {
   const { orderId: paramId } = useParams(); // 라우터에서 접근할 경우
   const orderId = propId || paramId;
-
+  //propId가 있으면 그걸 사용하고, 없으면 paramId를 사용합니다.
   const [order, setOrder] = useState(null);
   const [error, setError] = useState(null); // 오류 상태 추가
   const [loading, setLoading] = useState(false); // 로딩 상태 추가

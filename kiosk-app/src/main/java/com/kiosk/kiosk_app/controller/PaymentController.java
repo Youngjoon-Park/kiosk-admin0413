@@ -81,12 +81,6 @@ public class PaymentController {
     /**
      * 2단계 - 결제 승인 요청
      */
-    /**
-     * 2단계 - 결제 승인 요청
-     */
-    /**
-     * 2단계 - 결제 승인 요청
-     */
     @PostMapping("/approve")
     public ResponseEntity<?> approvePayment(@RequestBody Map<String, String> payload) {
         String pgToken = payload.get("pgToken");

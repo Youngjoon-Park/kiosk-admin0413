@@ -1,0 +1,5 @@
+# ✅ Gradle 관련 무시 파일
+.gradle/
+build/
+bin/
+**/stash-dir/

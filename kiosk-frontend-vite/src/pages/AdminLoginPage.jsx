@@ -1,4 +1,4 @@
-// src/pages/AdminLoginPage.jsx
+// 📁 src/pages/AdminLoginPage.jsx
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -8,7 +8,9 @@ function AdminLoginPage() {
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
 
-  const handleLogin = async () => {
+  const handleLogin = async (e) => {
+    e.preventDefault(); // ✅ 폼 제출 시 새로고침 방지
+
     try {
       const response = await axios.post('/api/admin/login', {
         username,
@@ -26,23 +28,25 @@ function AdminLoginPage() {
   return (
     <div style={styles.container}>
       <h2>관리자 로그인</h2>
-      <input
-        style={styles.input}
-        type="text"
-        placeholder="아이디"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-      />
-      <input
-        style={styles.input}
-        type="password"
-        placeholder="비밀번호"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
-      <button style={styles.button} onClick={handleLogin}>
-        로그인
-      </button>
+      <form onSubmit={handleLogin}>
+        <input
+          style={styles.input}
+          type="text"
+          placeholder="아이디"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
+        <input
+          style={styles.input}
+          type="password"
+          placeholder="비밀번호"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <button type="submit" style={styles.button}>
+          로그인
+        </button>
+      </form>
     </div>
   );
 }

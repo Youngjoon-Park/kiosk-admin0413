@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import java.security.Key;
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Component
 public class JwtTokenProvider {
@@ -21,16 +22,18 @@ public class JwtTokenProvider {
 
     private Key key;
 
-    private final long validityInMilliseconds = 10 * 60 * 1000; // 10분으로
+    private final long validityInMilliseconds = 10 * 60 * 1000; // 10분
 
     @PostConstruct
     protected void init() {
         this.key = Keys.hmacShaKeyFor(secretKey.getBytes());
     }
 
+    // ✅ 토큰 생성
     public String createToken(String username, String role) {
         Claims claims = Jwts.claims().setSubject(username);
-        claims.put("role", role);
+        claims.put("roles", List.of("ROLE_ADMIN")); // "roles" 키로 배열 형태로 설정
+
         Date now = new Date();
         Date validity = new Date(now.getTime() + validityInMilliseconds);
 
@@ -42,6 +45,7 @@ public class JwtTokenProvider {
                 .compact();
     }
 
+    // ✅ 토큰 유효성 검사
     public boolean validateToken(String token) {
         try {
             Jws<Claims> claims = Jwts.parserBuilder()
@@ -54,12 +58,27 @@ public class JwtTokenProvider {
         }
     }
 
+    // ✅ 토큰에서 인증 정보 추출 (권한 포함)
     public Authentication getAuthentication(String token) {
-        String username = getUsername(token);
-        return new UsernamePasswordAuthenticationToken(
-                username, null, List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+        String username = claims.getSubject();
+
+        @SuppressWarnings("unchecked")
+        List<String> roles = (List<String>) claims.get("roles");
+
+        List<SimpleGrantedAuthority> authorities = roles.stream()
+                .map(SimpleGrantedAuthority::new)
+                .collect(Collectors.toList());
+
+        return new UsernamePasswordAuthenticationToken(username, null, authorities);
     }
 
+    // ✅ 토큰에서 사용자명 추출
     public String getUsername(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(key)
