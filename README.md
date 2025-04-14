@@ -479,5 +479,78 @@ pm2 save && pm2 startup   # 부팅 시 자동 실행 등록
 4. PM2 serve 실행 (4173)
 5. http://localhost:4173 접속
 ```
+수정본 (JWT 인증 개선 사항 중심)
+
+# Kiosk Admin Backend (Spring Boot)
+
+본 프로젝트는 Spring Boot 기반의 키오스크 관리자 시스템입니다.  
+2025년 4월 15일자 기준으로 **보안 및 인증 관련 기능**이 다음과 같이 개선되었습니다.
+
+---
+
+## 🔐 인증 시스템 개선 내용 (2025-04-15 업데이트)
+
+### ✅ 1. `JWT 토큰 기반 인증` 도입
+- 로그인 시 `Bearer Token`(HS256 알고리즘 사용) 생성 및 발급
+- 토큰에 포함된 클레임 정보:
+  ```json
+  {
+    "sub": "admin",
+    "roles": ["ROLE_ADMIN"],
+    "iat": 1744641992,
+    "exp": 1744642592
+  }
+✅ 2. JwtTokenProvider.java 주요 변경
+roles 값을 배열 형태로 "ROLE_ADMIN" 포함
+
+10분 유효시간 설정
+
+Authentication 객체 반환 시 권한 적용
+
+claims.put("roles", List.of("ROLE_ADMIN"));  // 🔧 배열 형태 클레임으로 저장
+✅ 3. SecurityConfig.java 설정 변경
+모든 /api/admin/** 경로는 hasRole("ADMIN") 권한 요구
+
+/api/admin/login, /api/admin/validate 등은 permitAll()
+
+기존 /api/admin/payments 경로도 인증 필요하도록 재설정
+
+JwtAuthenticationFilter 필터 등록
+
+.requestMatchers("/api/admin/**").hasRole("ADMIN")
+.addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class)
+
+✅ 4. .gitignore 정리
+빌드 결과물 및 캐시 제거: .gradle/, build/, bin/ 등 무시 처리
+
+.gradle/
+build/
+bin/
+**/stash-dir/
+📁 관련 폴더
+kiosk-app: 백엔드(Spring Boot)
+kiosk-frontend-vite: 프론트엔드(Vite + React)
+config-server: Spring Cloud Config (변경 없음)
+백엔드 변경 사항 (요약)
+JwtTokenProvider.java: 클레임 → "roles": ["ROLE_ADMIN"] 배열 형태로 저장
+
+SecurityConfig.java: /api/admin/** 경로 전체를 hasRole("ADMIN")으로 보호
+
+JwtAuthenticationFilter: 로그인 후 토큰 검증 및 인증 객체 생성
+
+.gitignore: .gradle, build, bin, stash-dir 무시 처리
+
+git commit: 이전 캐시 삭제됨 (.class, .jar, HTML 빌드물 포함)
+프론트엔드 변경 사항 (AdminLoginPage.jsx)
+✨ 변경 전 문제
+<input type="password" /> 태그가 <form> 외부에 있어서 Chrome DevTools에서 아래 경고 발생:
+
+수정추가함 폼태
+<form onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
+  <input type="text" ... />
+  <input type="password" ... />
+  <button type="submit">로그인</button>
+</form>
+
 
 
