@@ -487,70 +487,95 @@ pm2 save && pm2 startup   # 부팅 시 자동 실행 등록
 2025년 4월 15일자 기준으로 **보안 및 인증 관련 기능**이 다음과 같이 개선되었습니다.
 
 ---
+## 🔐 백엔드 인증 시스템 개선 내역 (0415 업데이트)
 
-## 🔐 인증 시스템 개선 내용 (2025-04-15 업데이트)
+이번 커밋에서는 **관리자 인증 흐름 개선, 보안 강화, 프로젝트 구조 정리**가 함께 이루어졌습니다.
 
-### ✅ 1. `JWT 토큰 기반 인증` 도입
-- 로그인 시 `Bearer Token`(HS256 알고리즘 사용) 생성 및 발급
-- 토큰에 포함된 클레임 정보:
-  ```json
-  {
-    "sub": "admin",
-    "roles": ["ROLE_ADMIN"],
-    "iat": 1744641992,
-    "exp": 1744642592
-  }
-✅ 2. JwtTokenProvider.java 주요 변경
-roles 값을 배열 형태로 "ROLE_ADMIN" 포함
+---
 
-10분 유효시간 설정
+### ✅ 1. JWT 토큰 생성 방식 개선
 
-Authentication 객체 반환 시 권한 적용
+기존 방식에서는 JWT에 단일 role 값을 넣었으나, Spring Security에서는 `List<GrantedAuthority>` 형태를 요구합니다.
 
-claims.put("roles", List.of("ROLE_ADMIN"));  // 🔧 배열 형태 클레임으로 저장
-✅ 3. SecurityConfig.java 설정 변경
-모든 /api/admin/** 경로는 hasRole("ADMIN") 권한 요구
+```java
+// 변경 전
+claims.put("role", role);
 
-/api/admin/login, /api/admin/validate 등은 permitAll()
+// 변경 후 ✅
+claims.put("roles", List.of("ROLE_ADMIN"));
+```
 
-기존 /api/admin/payments 경로도 인증 필요하도록 재설정
+🔍 **효과**:
+- `hasRole("ADMIN")` 검사 시 인증이 정상적으로 통과됨
+- 추후 다중 권한 처리에도 유연하게 대응 가능
 
-JwtAuthenticationFilter 필터 등록
+---
 
-.requestMatchers("/api/admin/**").hasRole("ADMIN")
+### ✅ 2. Spring Security 설정 강화
+
+#### SecurityConfig.java
+```java
+.requestMatchers("/api/admin/**").hasRole("ADMIN") // ✅ 보호 경로
+```
+
+#### 제거된 허용 설정
+```java
+// 삭제됨
+.requestMatchers("/api/admin/payments").permitAll()
+.requestMatchers("/api/admin/payments/**").permitAll()
+```
+
+🔍 **효과**:
+- `/api/admin/payments` API가 이제 인증 없이는 접근 불가
+- 전체 `/api/admin/**` 경로가 ROLE_ADMIN 토큰이 있어야 통과됨
+
+---
+
+### ✅ 3. JwtAuthenticationFilter 적용
+
+```java
 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class)
+```
 
-✅ 4. .gitignore 정리
-빌드 결과물 및 캐시 제거: .gradle/, build/, bin/ 등 무시 처리
+🔍 **효과**:
+- 모든 요청에서 `Authorization` 헤더를 확인
+- 토큰이 유효하면 Spring Security의 인증 객체 생성 및 등록
 
-.gradle/
-build/
-bin/
-**/stash-dir/
-📁 관련 폴더
-kiosk-app: 백엔드(Spring Boot)
-kiosk-frontend-vite: 프론트엔드(Vite + React)
-config-server: Spring Cloud Config (변경 없음)
-백엔드 변경 사항 (요약)
-JwtTokenProvider.java: 클레임 → "roles": ["ROLE_ADMIN"] 배열 형태로 저장
+---
 
-SecurityConfig.java: /api/admin/** 경로 전체를 hasRole("ADMIN")으로 보호
+### ✅ 4. .gitignore 정리
 
-JwtAuthenticationFilter: 로그인 후 토큰 검증 및 인증 객체 생성
+`.gradle/`, `build/`, `bin/`, `*.class`, `*.jar` 등 자동 생성 파일 제외
 
-.gitignore: .gradle, build, bin, stash-dir 무시 처리
+🔍 **효과**:
+- Git 저장소 용량 감소
+- 불필요한 커밋 이슈 방지
+- 추후 GitHub 배포 및 협업 시 안정성 향상
 
-git commit: 이전 캐시 삭제됨 (.class, .jar, HTML 빌드물 포함)
-프론트엔드 변경 사항 (AdminLoginPage.jsx)
-✨ 변경 전 문제
-<input type="password" /> 태그가 <form> 외부에 있어서 Chrome DevTools에서 아래 경고 발생:
+---
 
-수정추가함 폼태
+### ✅ 5. 로그인 UI 개선 (프론트엔드 연동 부분)
+
+`AdminLoginPage.jsx`에 `<form>` 태그 추가하여 구조 개선
+
+```jsx
 <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
   <input type="text" ... />
   <input type="password" ... />
   <button type="submit">로그인</button>
 </form>
+```
+
+🔍 **효과**:
+- 브라우저 경고 메시지 해소 (`Password field not contained in a form`)
+- 로그인 저장 기능 등 표준 HTML 기능 작동 가능
+
+---
+
+✅ 이번 커밋은 관리자 인증 시스템의 완성도를 높이고, 구조를 깔끔하게 정리하는 데 중점을 두었습니다.
+
+
+
 
 
 
